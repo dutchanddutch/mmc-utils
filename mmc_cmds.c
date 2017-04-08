@@ -1433,8 +1433,6 @@ int do_read_extcsd(int nargs, char **argv)
 		printf("TRIM Multiplier [TRIM_MULT: 0x%02x]\n", ext_csd[232]);
 		printf("Secure Feature support [SEC_FEATURE_SUPPORT: 0x%02x]\n",
 			ext_csd[231]);
-	}
-	if (ext_csd_rev == 5) { /* Obsolete in 4.5 */
 		printf("Secure Erase Multiplier [SEC_ERASE_MULT: 0x%02x]\n",
 			ext_csd[230]);
 		printf("Secure TRIM Multiplier [SEC_TRIM_MULT: 0x%02x]\n",
