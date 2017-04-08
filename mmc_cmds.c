@@ -1407,8 +1407,10 @@ int do_read_extcsd(int nargs, char **argv)
 
 		/* CORRECTLY_PRG_SECTORS_NUM [245:242] TODO */
 
+		reg = ext_csd[241];
 		printf("1st Initialisation Time after programmed sector"
-			" [INI_TIMEOUT_AP: 0x%02x]\n", ext_csd[241]);
+			" [INI_TIMEOUT_AP: 0x%02x]\n", reg);
+		printf( " (i.e. %d.%d seconds)\n", reg / 10, reg % 10 );
 
 		/* A441: reserved [240] */
 		printf("Power class for 52MHz, DDR at 3.6V"
