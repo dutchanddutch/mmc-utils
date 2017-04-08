@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <linux/fs.h>
+#include <stdbool.h>
 
 #include "mmc.h"
 #include "mmc_cmds.h"
@@ -1431,12 +1432,28 @@ int do_read_extcsd(int nargs, char **argv)
 		printf(" [MIN_PERF_DDR_R_8_52: 0x%02x]\n", ext_csd[234]);
 		/* A441: reserved [233] */
 		printf("TRIM Multiplier [TRIM_MULT: 0x%02x]\n", ext_csd[232]);
+		reg = ext_csd[231];
 		printf("Secure Feature support [SEC_FEATURE_SUPPORT: 0x%02x]\n",
-			ext_csd[231]);
-		printf("Secure Erase Multiplier [SEC_ERASE_MULT: 0x%02x]\n",
-			ext_csd[230]);
-		printf("Secure TRIM Multiplier [SEC_TRIM_MULT: 0x%02x]\n",
-			ext_csd[229]);
+			reg);
+		bool sec_erase	= !!(reg & (1 << 0));
+		bool trim	= !!(reg & (1 << 4));
+		bool sec_trim	= trim && sec_erase;
+		if (trim)
+			printf(" Trim supported\n");
+		if (sec_erase)
+			printf(" Secure Erase supported\n");
+		if (sec_trim)
+			printf(" Secure TRIM supported\n");
+		if (reg & (1 << 2))
+			printf(" Secure bad block retirement supported\n");
+		if (reg & (1 << 6))
+			printf(" Sanitize supported\n");
+		if (sec_erase)
+			printf("Secure Erase Multiplier"
+				" [SEC_ERASE_MULT: 0x%02x]\n", ext_csd[230]);
+		if (sec_trim)
+			printf("Secure TRIM Multiplier"
+				" [SEC_TRIM_MULT: 0x%02x]\n", ext_csd[229]);
 	}
 	reg = ext_csd[EXT_CSD_BOOT_INFO];
 	printf("Boot Information [BOOT_INFO: 0x%02x]\n", reg);
