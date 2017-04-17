@@ -1445,6 +1445,23 @@ int do_read_extcsd(int nargs, char **argv)
 			ext_csd[495]);
 		printf("Extended partition attribute support"
 			" [EXT_SUPPORT: 0x%02x]\n", ext_csd[494]);
+	}
+
+	if (ext_csd_rev >= 7) {
+		reg = ext_csd[493];
+		printf("Field Firmware Upgrade [SUPPORTED_MODES: 0x%02x]\n",
+			reg);
+		if( reg & 1 ) {
+			printf("  [FFU_FEATURES: 0x%02x]\n", ext_csd[492]);
+		}
+	}
+
+	if (ext_csd_rev >= 8) {
+		printf("Write barriers [BARRIER_SUPPORT: 0x%02x]\n",
+			ext_csd[486]);
+	}
+
+	if (ext_csd_rev >= 6) {
 		printf("Generic CMD6 Timer [GENERIC_CMD6_TIME: 0x%02x]\n",
 			ext_csd[248]);
 		printf("Power off notification [POWER_OFF_LONG_TIME: 0x%02x]\n",
@@ -1813,6 +1830,12 @@ int do_read_extcsd(int nargs, char **argv)
 			ext_csd[EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_B]);
 		printf("eMMC Pre EOL information [EXT_CSD_PRE_EOL_INFO]: 0x%02x\n",
 			ext_csd[EXT_CSD_PRE_EOL_INFO]);
+
+		printf("Production State Awareness Enablement"
+			" [ PRODUCT_STATE_AWARENESS_ENABLEMENT]: 0x%02x\n",
+			ext_csd[17]);
+		printf("Secure Removal Type [SECURE_REMOVAL_TYPE]: 0x%02x\n",
+			ext_csd[16]);
 	}
 
 	if (ext_csd_rev >= 8) {
