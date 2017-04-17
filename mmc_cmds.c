@@ -1290,6 +1290,60 @@ int do_write_reliability_set(int nargs, char **argv)
 	return 0;
 }
 
+static int hexdump( __u8 const buf[], size_t len )
+{
+	static const char hex[16] = "0123456789abcdef";
+
+	if( len == 0 )
+		return 0;
+
+	char line[32*2 + 1 + 1];
+	if( len > 32 ) {
+		line[32*2+0] = '\n';
+		line[32*2+1] = 0;
+		do {
+			for( int i = 0; i < 32; i++ ) {
+				line[2*i+0] = hex[ buf[i] >> 4 ];
+				line[2*i+1] = hex[ buf[i] & 15 ];
+			}
+			fputs(line, stdout);
+			buf += 32;
+			len -= 32;
+		} while( len > 32 );
+	}
+	for( int i = 0; i < len; i++ ) {
+		line[2*i+0] = hex[ buf[i] >> 4 ];
+		line[2*i+1] = hex[ buf[i] & 15 ];
+	}
+	line[len*2+0] = '\n';
+	line[len*2+1] = 0;
+	fputs(line, stdout);
+	return 0;
+}
+
+int do_dump_extcsd(int nargs, char **argv)
+{
+	CHECK(nargs != 2, "Usage: mmc extcsd dump </path/to/mmcblkX>\n",
+			  exit(1));
+
+	const char *devpath = argv[1];
+
+	int fd = open(devpath, O_RDONLY);
+	if (fd < 0) {
+		perror("open");
+		exit(1);
+	}
+
+	__u8 ext_csd[512];
+	int ret = read_extcsd(fd, ext_csd);
+	if (ret) {
+		fprintf(stderr, "Could not read EXT_CSD from %s\n", devpath);
+		exit(1);
+	}
+
+	return hexdump(ext_csd, sizeof ext_csd);
+}
+
 int do_read_extcsd(int nargs, char **argv)
 {
 	__u8 ext_csd[512], ext_csd_rev, reg;
