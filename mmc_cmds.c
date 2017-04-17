@@ -1303,7 +1303,7 @@ int do_read_extcsd(int nargs, char **argv)
 
 	device = argv[1];
 
-	fd = open(device, O_RDWR);
+	fd = open(device, O_RDONLY);
 	if (fd < 0) {
 		perror("open");
 		exit(1);
