@@ -18,6 +18,7 @@
  */
 
 /* mmc_cmds.c */
+int do_slc_configuration(int nargs, char **argv);
 int do_dump_extcsd(int nargs, char **argv);
 int do_read_extcsd(int nargs, char **argv);
 int do_write_extcsd(int nargs, char **argv);

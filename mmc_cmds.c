@@ -17,6 +17,7 @@
  * those modifications are Copyright (c) 2016 SanDisk Corp.
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1342,6 +1343,176 @@ int do_dump_extcsd(int nargs, char **argv)
 	}
 
 	return hexdump(ext_csd, sizeof ext_csd);
+}
+
+#include <stdarg.h>
+
+static void die( char const *fmt, ... )
+{
+	va_list ap;
+	char *s;
+	va_start( ap, fmt );
+	if( vasprintf( &s, fmt, ap ) < 0 ) {
+		fprintf( stderr, "while formatting fatal error: %m\n" );
+	} else {
+		fprintf( stderr, "%s\n", s );
+		free( s );
+	}
+	va_end( ap );
+	exit( EXIT_FAILURE );
+}
+
+int do_slc_configuration(int nargs, char **argv)
+{
+	CHECK(nargs != 2, "Usage: mmc reliable-slc-configuration </path/to/mmcblkX>\n",
+			  exit(1));
+
+	const char *devpath = argv[1];
+
+	int fd = open(devpath, O_RDONLY);
+	if (fd < 0)
+		die( "open %s: %m", devpath );
+
+	__u8 ext_csd[512];
+	int ret = read_extcsd(fd, ext_csd);
+	if (ret)
+		die( "Could not read EXT_CSD from %s", devpath );
+
+	// in 512-byte sectors
+	unsigned hceg = get_hc_erase_grp_size(ext_csd) * 1024;
+	unsigned hcwpg = get_hc_wp_grp_size(ext_csd) * hceg;
+	unsigned user_total = get_sector_count(ext_csd);
+	printf( "hceg_sectors=%d\n", hceg );
+	printf( "hcwpg_sectors=%d\n", hcwpg );
+	printf( "user_sectors=%d\n", user_total );
+	if( user_total % hcwpg )
+		die( "user area is NOT multiple of hcwpg size" );
+	// in hcwpg units
+	user_total /= hcwpg;
+	unsigned max_enh =
+		( ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT_0] <<  0
+		| ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT_1] <<  8
+		| ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT_2] << 16 );
+	unsigned user_enh =
+		( ext_csd[EXT_CSD_ENH_SIZE_MULT_0] <<  0
+		| ext_csd[EXT_CSD_ENH_SIZE_MULT_1] <<  8
+		| ext_csd[EXT_CSD_ENH_SIZE_MULT_2] << 16 );
+
+	printf( "user_total=%d\n", user_total );
+	printf( "max_enh=%d\n", max_enh );
+	printf( "user_enh=%d\n", user_enh );
+
+	bool write_reliability = ext_csd[EXT_CSD_WR_REL_SET] & 1;
+	bool partitioning_done = ext_csd[EXT_CSD_PARTITION_SETTING_COMPLETED] & 1;
+
+	printf( "write_reliability=%d\n", write_reliability );
+	printf( "partitioning_done=%d\n", partitioning_done );
+
+	ret = ext_csd[EXT_CSD_PARTITIONING_SUPPORT];
+	if( !(ret & EXT_CSD_ENH_ATTRIBUTE_EN) )
+		die("device can NOT be configured as SLC");
+
+	if( partitioning_done ) {
+		if( ! write_reliability )
+			die( "write reliability is NOT enabled" );
+		if( user_total != user_enh )
+			die( "user area is NOT configured as SLC" );
+		return 0;
+	}
+
+	if( ! write_reliability ) {
+		if( !(ext_csd[EXT_CSD_WR_REL_PARAM] & HS_CTRL_REL) )
+			die( "write reliability is NOT configurable" );
+	}
+
+	if( user_total != max_enh * 2 )
+		die( "current (MLC) user size != 2 * max SLC size" );
+
+	/* set EXT_CSD_ERASE_GROUP_DEF bit 0 */
+	ret = write_extcsd_value(fd, EXT_CSD_ERASE_GROUP_DEF, 0x1);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x1 to "
+			"EXT_CSD[%d] in %s\n",
+			EXT_CSD_ERASE_GROUP_DEF, devpath);
+		exit(1);
+	}
+
+	printf( "needs_power_cycle=1\n" );
+
+	if( ! write_reliability ) {
+		ret = write_extcsd_value( fd, EXT_CSD_WR_REL_SET,
+				ext_csd[EXT_CSD_WR_REL_SET] | 1 );
+		if( ret )
+			die( "error while enabling write reliability" );
+	}
+
+	/* write to ENH_START_ADDR and ENH_SIZE_MULT and PARTITIONS_ATTRIBUTE's ENH_USR bit */
+	ret = write_extcsd_value(fd, EXT_CSD_ENH_START_ADDR_3, 0);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x%02x to "
+			"EXT_CSD[%d] in %s\n", 0,
+			EXT_CSD_ENH_START_ADDR_3, devpath);
+		exit(1);
+	}
+	ret = write_extcsd_value(fd, EXT_CSD_ENH_START_ADDR_2, 0);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x%02x to "
+			"EXT_CSD[%d] in %s\n", 0,
+			EXT_CSD_ENH_START_ADDR_2, devpath);
+		exit(1);
+	}
+	ret = write_extcsd_value(fd, EXT_CSD_ENH_START_ADDR_1, 0);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x%02x to "
+			"EXT_CSD[%d] in %s\n", 0,
+			EXT_CSD_ENH_START_ADDR_1, devpath);
+		exit(1);
+	}
+	ret = write_extcsd_value(fd, EXT_CSD_ENH_START_ADDR_0, 0);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x%02x to "
+			"EXT_CSD[%d] in %s\n", 0,
+			EXT_CSD_ENH_START_ADDR_0, devpath);
+		exit(1);
+	}
+
+	__u8 value = (max_enh >> 16) & 0xff;
+	ret = write_extcsd_value(fd, EXT_CSD_ENH_SIZE_MULT_2, value);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x%02x to "
+			"EXT_CSD[%d] in %s\n", value,
+			EXT_CSD_ENH_SIZE_MULT_2, devpath);
+		exit(1);
+	}
+	value = (max_enh >> 8) & 0xff;
+	ret = write_extcsd_value(fd, EXT_CSD_ENH_SIZE_MULT_1, value);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x%02x to "
+			"EXT_CSD[%d] in %s\n", value,
+			EXT_CSD_ENH_SIZE_MULT_1, devpath);
+		exit(1);
+	}
+	value = max_enh & 0xff;
+	ret = write_extcsd_value(fd, EXT_CSD_ENH_SIZE_MULT_0, value);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x%02x to "
+			"EXT_CSD[%d] in %s\n", value,
+			EXT_CSD_ENH_SIZE_MULT_0, devpath);
+		exit(1);
+	}
+	value = ext_csd[EXT_CSD_PARTITIONS_ATTRIBUTE] | EXT_CSD_ENH_USR;
+	ret = write_extcsd_value(fd, EXT_CSD_PARTITIONS_ATTRIBUTE, value);
+	if (ret) {
+		fprintf(stderr, "Could not set EXT_CSD_ENH_USR in "
+			"EXT_CSD[%d] in %s\n",
+			EXT_CSD_PARTITIONS_ATTRIBUTE, devpath);
+		exit(1);
+	}
+
+	if( set_partitioning_setting_completed(0, devpath, fd) )
+		exit(1);
+
+	return 0;
 }
 
 int do_read_extcsd(int nargs, char **argv)

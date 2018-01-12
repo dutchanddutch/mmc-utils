@@ -53,6 +53,11 @@ static struct Command commands[] = {
 	/*
 	 *	avoid short commands different for the case only
 	 */
+	{ do_slc_configuration, -1,
+	  "reliable-slc-configuration", "<device>\n"
+		"DO NOT USE WITHOUT READING SOURCE CODE",
+	  NULL
+	},
 	{ do_dump_extcsd, -1,
 	  "extcsd dump", "<device>\n"
 		"Hex-dump extcsd data from <device>.",
