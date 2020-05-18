@@ -721,7 +721,7 @@ int do_hwreset_dis(int nargs, char **argv)
 
 int do_start_bkops(int nargs, char **argv)
 {
-	__u8 ext_csd[512], value = 0;
+	__u8 ext_csd[512], value = 1;
 	int fd, ret;
 	char *device;
 
