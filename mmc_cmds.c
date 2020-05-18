@@ -719,6 +719,49 @@ int do_hwreset_dis(int nargs, char **argv)
 	return do_hwreset(EXT_CSD_HW_RESET_DIS, nargs, argv);
 }
 
+int do_start_bkops(int nargs, char **argv)
+{
+	__u8 ext_csd[512], value = 0;
+	int fd, ret;
+	char *device;
+
+	CHECK(nargs != 2, "Usage: mmc bkops start </path/to/mmcblkX>\n",
+			exit(1));
+
+	device = argv[1];
+
+	fd = open(device, O_RDWR);
+	if (fd < 0) {
+		perror("open");
+		exit(1);
+	}
+
+	ret = read_extcsd(fd, ext_csd);
+	if (ret) {
+		fprintf(stderr, "Could not read EXT_CSD from %s\n", device);
+		exit(1);
+	}
+
+	if (!(ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1)) {
+		fprintf(stderr, "%s doesn't support BKOPS\n", device);
+		exit(1);
+	}
+
+	if (!(ext_csd[EXT_CSD_BKOPS_EN] & 0x1)) {
+		fprintf(stderr, "BKOPS are not enabled for %s\n", device);
+		exit(1);
+	}
+
+	ret = write_extcsd_value(fd, EXT_CSD_BKOPS_START, value);
+	if (ret) {
+		fprintf(stderr, "Could not write 0x%02x to EXT_CSD[%d] in %s\n",
+			value, EXT_CSD_BKOPS_START, device);
+		exit(1);
+	}
+
+	return ret;
+}
+
 int do_write_bkops_en(int nargs, char **argv)
 {
 	__u8 ext_csd[512], value = 0;
